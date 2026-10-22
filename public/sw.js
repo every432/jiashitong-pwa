@@ -1,6 +1,6 @@
 // 正式部署启用：导航与资源采用网络优先；无网络时回退至已缓存的页面。
 // 离线只是尽力提供，不能代替用户手动导出的 JSON 数据备份。
-const CACHE = 'jiashitong-pwa-shell-0.1';
+const CACHE = 'jiashitong-pwa-shell-2.6';
 const SHELL = ['./','./index.html','./manifest.webmanifest','./icon-192.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting()));

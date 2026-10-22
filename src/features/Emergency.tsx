@@ -1,9 +1,9 @@
 import {useState} from 'react';
 import type { Dispatch,SetStateAction } from 'react';
-import type {AppData,Emergency as Person} from '../model';
+import type {FullAppData,Emergency as Person} from '../model';
 import {dial,normalizePhone,uid} from '../model';
 import {Header,Modal,Field,Actions,Empty,ConfirmDelete} from '../ui';
-export default function Emergency({data,setData,onBack}:{data:AppData;setData:Dispatch<SetStateAction<AppData>>;onBack:()=>void}){
+export default function Emergency({data,setData,onBack}:{data:FullAppData;setData:Dispatch<SetStateAction<FullAppData>>;onBack:()=>void}){
   const [manage,setManage]=useState(false),[editor,setEditor]=useState<Person|null|undefined>(undefined),[del,setDel]=useState<Person|null>(null);
   const [name,setName]=useState(''),[relation,setRelation]=useState(''),[phone,setPhone]=useState('');
   function open(p:Person|null){setEditor(p);setName(p?.name??'');setRelation(p?.relation??'');setPhone(p?.phone??'');}

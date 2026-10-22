@@ -1,9 +1,9 @@
 import {useState} from 'react';
 import type {Dispatch,SetStateAction} from 'react';
-import type {AppData,Hotline} from '../model';
+import type {FullAppData,Hotline} from '../model';
 import {dial,normalizePhone,uid,validDial} from '../model';
 import {Actions,ConfirmDelete,Empty,Field,Header,Modal,ScaleControl,Note} from '../ui';
-export default function Hotlines({data,setData,onBack}:{data:AppData;setData:Dispatch<SetStateAction<AppData>>;onBack:()=>void}){
+export default function Hotlines({data,setData,onBack}:{data:FullAppData;setData:Dispatch<SetStateAction<FullAppData>>;onBack:()=>void}){
   const [search,setSearch]=useState(''),[manage,setManage]=useState(false),[editor,setEditor]=useState<Hotline|null|undefined>(undefined),[del,setDel]=useState<Hotline|null>(null);
   const [duty,setDuty]=useState(''),[phone,setPhone]=useState(''),[remark,setRemark]=useState('');
   function open(h:Hotline|null){setEditor(h);setDuty(h?.duty??'');setPhone(h?.phone??'');setRemark(h?.remark??'')}

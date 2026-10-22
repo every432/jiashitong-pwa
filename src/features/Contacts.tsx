@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react';
 import type { Dispatch, SetStateAction, PointerEvent as ReactPointerEvent } from 'react';
-import type { AppData, Contact } from '../model';
+import type { FullAppData, Contact } from '../model';
 import { dial, normalizePhone, uid } from '../model';
 import { Actions, ConfirmDelete, Empty, Field, Header, Modal, ScaleControl } from '../ui';
 
-type Props={data:AppData;setData:Dispatch<SetStateAction<AppData>>;onBack:()=>void};
+type Props={data:FullAppData;setData:Dispatch<SetStateAction<FullAppData>>;onBack:()=>void};
 export default function Contacts({data,setData,onBack}:Props) {
   const [search,setSearch]=useState('');const [manage,setManage]=useState(false);
   const [editor,setEditor]=useState<Contact|null|undefined>(undefined);

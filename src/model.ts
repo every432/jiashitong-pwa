@@ -22,3 +22,20 @@ export const addDays = (date: string, days: number) => { const [y,m,d] = date.sp
 export const formatUnits = (n: number) => Number.isFinite(n) ? `${Number(n.toFixed(2))}` : '0';
 export const weekdayName = ['周日','周一','周二','周三','周四','周五','周六'];
 export const finiteBetween = (v: number, min: number, max: number) => Number.isFinite(v) && v >= min && v <= max;
+
+// V2.6 增量数据结构；保留 V0.1 旧字段供数据迁移和备份还原。
+export type ReminderMode = 'none'|'notification'|'alarm';
+export type DiaryEntry = {id:string; date:string; title:string; content:string; updatedAt:string};
+export type MemoEntry = {id:string; title:string; eventAt:string; note:string; remindAt:string; reminderMode:ReminderMode};
+export type CourtesyDetail = {id:string; date:string; direction:'收到'|'送出'; item:string; amount:number; method:'现金'|'微信'|'支付宝'|'其他'; note:string};
+export type CourtesyGroup = {id:string; title:string; note:string; details:CourtesyDetail[]};
+export type DebtEntry = {id:string; kind:'债权'|'债务'; party:string; occurredOn:string; amount:number; method:'现金'|'微信'|'支付宝'|'其他'; dueOn:string; reminderMode:ReminderMode; remindDaysBefore:number; remindTime:string; returned:boolean; includeInStats:boolean; note:string};
+export type CourseLedger = {id:string; courseId:string; date:string; time:string; units:number; status:'normal'|'leave'|'makeup'; note:string; legacyMeetingId?:string};
+export type V26Data = {
+  diaries:DiaryEntry[]; memos:MemoEntry[]; courtesy:CourtesyGroup[]; debts:DebtEntry[]; courseLedger:CourseLedger[];
+  birthdayReminders:Record<string,{mode:ReminderMode;daysBefore:number;time:string}>;
+  courseNotes:Record<string,string>; courseReminderModes:Record<string,ReminderMode>;
+};
+export type FullAppData = AppData & V26Data;
+export const reminderModes: {id:ReminderMode;label:string}[] = [{id:'none',label:'不提醒'},{id:'notification',label:'普通提醒'},{id:'alarm',label:'响铃提醒（仅前台）'}];
+export const paymentMethods = ['现金','微信','支付宝','其他'] as const;

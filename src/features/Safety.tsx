@@ -1,10 +1,10 @@
 import {useState} from 'react';
 import type {Dispatch,SetStateAction} from 'react';
-import type {AppData} from '../model';
+import type {FullAppData} from '../model';
 import {normalizePhone} from '../model';
 import {Field,Header,Note} from '../ui';
 const presets=['我一切平安，请放心！','我已平安到达，请放心！','事情已办妥，请放心！'];
-export default function Safety({data,setData,onBack}:{data:AppData;setData:Dispatch<SetStateAction<AppData>>;onBack:()=>void}){
+export default function Safety({data,setData,onBack}:{data:FullAppData;setData:Dispatch<SetStateAction<FullAppData>>;onBack:()=>void}){
   const [name,setName]=useState(data.safety.name),[phone,setPhone]=useState(data.safety.phone),[message,setMessage]=useState(data.safety.message),[info,setInfo]=useState('');
   const unchanged=name===data.safety.name&&phone===data.safety.phone&&message===data.safety.message;
   const ready=unchanged && !!data.safety.name&&!!data.safety.phone&&!!data.safety.message;
