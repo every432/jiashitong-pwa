@@ -1,0 +1,15 @@
+{
+  "name": "家事通",
+  "short_name": "家事通",
+  "description": "家人的重要事情都放在一起",
+  "lang": "zh-CN",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fbf9fe",
+  "theme_color": "#6750a4",
+  "icons": [
+    {"src":"./icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
+    {"src":"./icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+  ]
+}
