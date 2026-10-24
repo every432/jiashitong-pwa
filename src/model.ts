@@ -2,7 +2,8 @@ export type Contact = { id: string; name: string; phone: string; longPhone: stri
 export type Emergency = { id: string; name: string; relation: string; phone: string };
 export type Safety = { name: string; phone: string; message: string };
 export type ImportantDay = { id: string; title: string; category: '生日' | '纪念日'; year: number; month: number; day: number; calendarType: 'solar' | 'lunar'; isLeapMonth: boolean };
-export type Hotline = { id: string; duty: string; phone: string; remark: string };
+export type HotlineCategory = '投诉举报'|'应急求助'|'保险报案';
+export type Hotline = { id: string; duty: string; phone: string; remark: string; category?:HotlineCategory; url?:string; pinned?:boolean; favorite?:boolean };
 export type TrainingCourse = { id: string; name: string; purchased: number; reminderHour: number; reminderMinute: number; hourBefore: boolean; reminderDaysBefore: number };
 export type WeeklyRule = { id: string; courseId: string; dayOfWeek: number; hour: number; minute: number; durationMinutes: number; consumeUnits: number };
 export type CourseMeeting = { id: string; courseId: string; startsAt: string; durationMinutes: number; consumeUnits: number; status: 'planned' | 'done' | 'cancelled'; note: string; originRuleId: string; manuallyAdjusted: boolean };
@@ -36,6 +37,9 @@ export type V26Data = {
   birthdayReminders:Record<string,{mode:ReminderMode;daysBefore:number;time:string}>;
   courseNotes:Record<string,string>; courseReminderModes:Record<string,ReminderMode>;
 };
-export type FullAppData = AppData & V26Data;
+export type Expense = {id:string;cents:number;date:string;category:string;note:string};
+export type Website = {id:string;name:string;category:string;url:string;note:string;pinned?:boolean;favorite?:boolean};
+export type V31Data = {schemaVersion:31;expenses:Expense[];websites:Website[];expenseScale:number;migrations:{hotlinesV31:boolean;[key:string]:unknown}};
+export type FullAppData = AppData & V26Data & V31Data;
 export const reminderModes: {id:ReminderMode;label:string}[] = [{id:'none',label:'不提醒'},{id:'notification',label:'普通提醒'},{id:'alarm',label:'响铃提醒（仅前台）'}];
 export const paymentMethods = ['现金','微信','支付宝','其他'] as const;

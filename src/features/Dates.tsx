@@ -11,7 +11,7 @@ export default function Dates({data,setData,onBack}:Props){
   const [editing,setEditing]=useState<ImportantDay|null|undefined>(undefined),[del,setDel]=useState<ImportantDay|null>(null);
   const [reminderMode,setReminderMode]=useState<ReminderMode>('none'),[reminderDays,setReminderDays]=useState('1'),[reminderTime,setReminderTime]=useState('09:00');
   const [title,setTitle]=useState(''),[category,setCategory]=useState<'生日'|'纪念日'>('生日'),[calendarType,setCalendarType]=useState<'solar'|'lunar'>('solar');
-  const [solar,setSolar]=useState(todayISO()),[lunarYear,setLunarYear]=useState(new Date().getFullYear()),[lunarMonth,setLunarMonth]=useState(1),[leap,setLeap]=useState(false),[lunarDay,setLunarDay]=useState(1);
+  const [solar,setSolar]=useState(todayISO()),[lunarYear,setLunarYear]=useState(()=>new Date().getFullYear()),[lunarMonth,setLunarMonth]=useState(1),[leap,setLeap]=useState(false),[lunarDay,setLunarDay]=useState(1);
   const months=useMemo(()=>calendarType==='lunar'?lunarMonthsForYear(lunarYear):[],[calendarType,lunarYear]);
   const activeMonth=months.find(m=>m.month===lunarMonth&&m.leap===leap);
   function open(p:ImportantDay|null){const setting=p?data.birthdayReminders[p.id]:undefined;setReminderMode(setting?.mode??'none');setReminderDays(String(setting?.daysBefore??1));setReminderTime(setting?.time??'09:00');setEditing(p);setTitle(p?.title??'');setCategory(p?.category??'生日');setCalendarType(p?.calendarType??'solar');

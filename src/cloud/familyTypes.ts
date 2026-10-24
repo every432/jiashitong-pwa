@@ -1,0 +1,10 @@
+export const familyActions=['whoAmI','listMyFamilies','getFamily','listMembers','createFamily','joinFamily','renameFamily','rotateInvite','setMyDisplayName','leaveFamily','removeMember','listCards','createCard','updateCard','deleteCard','listCollabRecords','getCollabRecord','mutateCollabRecord','getCollabOperation','listCollabActivity','v32Capabilities','v32CreateInvite','v32ListInvites','v32RevokeInvite','v32ConsumeInvite','v32SetMemberRole','v32SyncIdentity','v32Messages','v32ReadMessages','v32Unread'] as const;
+export type FamilyAction=typeof familyActions[number];
+export const familyWrites=new Set<FamilyAction>(['createFamily','joinFamily','renameFamily','rotateInvite','setMyDisplayName','leaveFamily','removeMember','createCard','updateCard','deleteCard','mutateCollabRecord','v32CreateInvite','v32RevokeInvite','v32ConsumeInvite','v32SetMemberRole','v32SyncIdentity','v32ReadMessages']);
+export type Json=Record<string,unknown>;
+export type Role='owner'|'admin'|'member';
+export type Family={id:string;name:string;ownerUid:string;displayName:string;role:'owner'|'member';effectiveRole?:Role;myMemberUid?:string;myMemberId?:string;invite?:string;expires?:number};
+export type Member={uid:string;displayName:string;role:'owner'|'member';accountNickname:string;profileUnavailable:boolean;memberId?:string;effectiveRole?:Role;authKind?:'anonymous'|'formal';boundAuthUid?:string};
+export type Home={family:Family;members:Member[];profilesSupported:boolean};
+export interface PendingStore{read(key:string):Promise<Json|null>;write(key:string,value:Json):Promise<void>;ack(key:string):Promise<void>;lock<T>(key:string,task:()=>Promise<T>):Promise<T>}
+export type FamilyGate={uid:string;canWrite:boolean};

@@ -1,0 +1,2 @@
+import {useId} from 'react';
+export function FamilyScale({value,onChange}:{value:number;onChange:(n:number)=>void}){const id=useId();return <div className="family-scale"><label htmlFor={id}>卡片大小：{value}%</label><input id={id} type="range" min={80} max={180} step={10} value={value} onChange={e=>onChange(Number(e.target.value))}/><div>{[80,120,180].map(n=><button type="button" className="chip" key={n} onClick={()=>onChange(n)}>{n}%</button>)}</div></div>;}

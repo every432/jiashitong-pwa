@@ -1,0 +1,6 @@
+import type {Member} from '../../cloud/familyTypes';
+import type {NotificationConfig} from '../../cloud/notificationProtocol';
+import {Field} from '../../ui';
+export default function NotificationRecipients({value,members,disabled,onChange}:{value:NotificationConfig;members:Member[];disabled:boolean;onChange:(v:NotificationConfig)=>void}){
+ return <section className="panel"><Field label="消息通知对象"><select value={value.mode} disabled={disabled} onChange={e=>onChange({mode:e.target.value as NotificationConfig['mode'],members:value.members})}><option value="all">通知所有其他家庭成员</option><option value="selected">通知指定家庭成员</option><option value="none">不通知</option></select></Field><p className="hint">通知对象与负责人独立；不改变事项的家庭可见权限。仅发送云端站内消息。</p>{value.mode==='selected'&&<>{value.members.some(id=>!members.some(m=>m.memberId===id))&&<p className="notice">部分原通知对象已离开或为本人，请重新选择。</p>}{members.filter(m=>!!m.memberId).map(m=><label className="family-check" key={m.memberId}><input type="checkbox" disabled={disabled} checked={value.members.includes(m.memberId!)} onChange={e=>onChange({...value,members:e.target.checked?[...value.members,m.memberId!]:value.members.filter(id=>id!==m.memberId)})}/>{m.accountNickname||m.displayName||'家庭成员'}</label>)}<button type="button" className="text-btn" disabled={disabled} onClick={()=>onChange({...value,members:[]})}>清空所选通知对象</button></>}</section>;
+}

@@ -1,13 +1,13 @@
 import {useState} from 'react';
 import type { Dispatch,SetStateAction } from 'react';
 import type {FullAppData,Emergency as Person} from '../model';
-import {dial,normalizePhone,uid} from '../model';
+import {dial,normalizePhone,uid,validDial} from '../model';
 import {Header,Modal,Field,Actions,Empty,ConfirmDelete} from '../ui';
 export default function Emergency({data,setData,onBack}:{data:FullAppData;setData:Dispatch<SetStateAction<FullAppData>>;onBack:()=>void}){
   const [manage,setManage]=useState(false),[editor,setEditor]=useState<Person|null|undefined>(undefined),[del,setDel]=useState<Person|null>(null);
   const [name,setName]=useState(''),[relation,setRelation]=useState(''),[phone,setPhone]=useState('');
   function open(p:Person|null){setEditor(p);setName(p?.name??'');setRelation(p?.relation??'');setPhone(p?.phone??'');}
-  function save(){const n=name.trim(),p=normalizePhone(phone);if(!n){alert('请填写姓名');return;}if(!/^(?:\+?\d{2,20})$/.test(p)){alert('电话号码需要 2～20 位数字');return;}const x={id:editor?.id??uid(),name:n,relation:relation.trim(),phone:p};setData(d=>({...d,emergencies:editor?d.emergencies.map(c=>c.id===x.id?x:c):[...d.emergencies,x]}));setEditor(undefined)}
+  function save(){const n=name.trim(),p=normalizePhone(phone);if(!n){alert('请填写姓名');return;}if(!validDial(p)){alert('请输入2～15位数字或有效国际号码');return;}const x={...editor,id:editor?.id??uid(),name:n,relation:relation.trim(),phone:p};setData(d=>({...d,emergencies:editor?d.emergencies.map(c=>c.id===x.id?x:c):[...d.emergencies,x]}));setEditor(undefined)}
   return <main className="page"><Header title="紧急联系人" subtitle="自己保存关键联系人，需要时快速找到" onBack={onBack}/><div className="toolbar two"><button className="btn primary" onClick={()=>open(null)}>＋ 添加紧急联系人</button><button className="btn secondary" onClick={()=>setManage(!manage)}>{manage?'完成管理':'管理编辑/删除'}</button></div><p className="hint">共 {data.emergencies.length} 位紧急联系人</p>
   {!data.emergencies.length?<Empty icon="🛡" title="还没有紧急联系人" description="可以登记家人、邻居或者其他可信赖的求助电话。"/>:
   <div className="stack">{data.emergencies.map(p=><article className="panel" key={p.id}><h2>{p.name}</h2><p className="muted">{[p.relation,p.phone].filter(Boolean).join(' · ')}</p><button className="btn green wide" onClick={()=>dial(p.phone)}>☎ 拨打电话</button>{manage&&<Actions><button className="btn ghost" onClick={()=>open(p)}>编辑</button><button className="btn ghost" onClick={()=>setDel(p)}>删除</button></Actions>}</article>)}</div>}
