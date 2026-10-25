@@ -22,6 +22,7 @@ export function accountIssue(error:unknown,stage:Stage):SafeIssue {
  if(match('invalid_username_or_password','invalid_password','password_not_set','invalid_credentials'))return issue('账号或密码不正确，或尚未设置密码。可以改用邮箱验证码登录。','input');
  if(match('user_not_found','user_not_exist')||(raw==='not_found'&&stage!=='LIST_MY_FAMILIES'))return issue('未找到已有账号，请核对邮箱或用户名。本次登录不会自动注册。','input');
  if(match('provider_not_enabled','disabled','operation_not_allowed','auth_method_mismatch'))return issue('此登录方式不可用，请核对控制台“身份认证”的登录方式配置。','permission');
+ if(match('unknown_action','invalid_action'))return {...issue('线上 family_api 尚未支持此接口，请核对部署版本；本次未使用本地数据代替云端结果。','permission'),code:'BACKEND_ACTION_UNSUPPORTED'};
  if(match('invalid_origin','invalid_domain','domain_not_allowed')||hint.includes('安全域名'))return {...issue('当前安全来源未被允许，请核对CloudBase安全来源配置；不会放宽数据库权限。','permission'),code:code==='SDK_ERROR'?'SECURITY_ORIGIN_REJECTED':code};
  if(status===403||match('forbidden','permission_denied','no_authority','exceed_authority'))return {...issue('当前登录身份没有调用权限。请核对family_api函数权限和HTTP API策略，不要开放匿名访问或数据库权限。','permission'),...(['exceed_authority','action_forbidden'].includes(raw)?{code:raw.toUpperCase()}:{})};
  if(match('invalid_email'))return issue('邮箱格式不正确，请检查邮箱地址。','input');

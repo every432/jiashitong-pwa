@@ -34,7 +34,7 @@ export function publicProfile(value:unknown,allowAnonymous=false):AccountProfile
  const metadata=object(value.user_metadata)?value.user_metadata:{};
  if(typeof metadata.uid==='string'&&metadata.uid&&metadata.uid!==value.id)failAccount('GET_PROFILE','PROFILE_UID_MISMATCH','账号资料身份不一致，已停止显示。','identity');
  const text=(v:unknown)=>typeof v==='string'?v:'';
- return {uid:value.id,nickname:text(metadata.nickName)||text(metadata.name),email:text(value.email),username:text(metadata.username),...(value.is_anonymous===true?{anonymous:true}:{})};
+ return {uid:value.id,nickname:text(metadata.nickName)||text(metadata.nickname)||text(metadata.name),email:text(value.email),username:text(metadata.username),...(value.is_anonymous===true?{anonymous:true}:{})};
 }
 export function normalizeNickname(raw:string):string {
  const value=raw.trim(),chars=Array.from(value);

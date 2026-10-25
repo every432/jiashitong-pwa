@@ -1,0 +1,327 @@
+--- a/app/src/main/java/com/leo/jiarentong/AccountProfileProtocol.kt
++++ b/app/src/main/java/com/leo/jiarentong/AccountProfileProtocol.kt
+@@ -23,7 +23,7 @@
+ internal fun parseCloudAccountProfile(value: JSONObject, uid: String): CloudAccountProfile {
+     if(value.getString("sub")!=uid)throw CloudFailure("账号资料身份不一致，已停止显示，请重新登录",code="invalid_profile_identity",stage="GET_PROFILE")
+     fun text(key:String)= (value.opt(key) as? String).orEmpty()
+-    return CloudAccountProfile(uid,text("name"),text("email"))
++    return CloudAccountProfile(uid,text("name").ifBlank{text("nickName")}.ifBlank{text("nickname")},text("email"))
+ }
+ internal fun emailRegistrationBody(email: String, verificationToken: String, username: String, password: String, nickname: String): JSONObject {
+     val body=JSONObject().put("email",email).put("verification_token",verificationToken)
+@@ -34,9 +34,16 @@
+     return body
+ }
+ internal fun memberVisibleNickname(member: CloudFamilyMember, own: CloudAccountProfile?): String =
+-    own?.takeIf{it.uid==member.uid && it.nickname.isNotBlank()}?.nickname
++    own?.takeIf{it.uid==member.boundAuthUid.ifBlank{member.uid} && it.nickname.isNotBlank()}?.nickname
+         ?: member.accountNickname?.takeIf{it.isNotBlank()} ?: member.displayName
+ 
+ internal fun emailAuthenticationBody(existing: Boolean, email: String, verificationToken: String, username: String, password: String, nickname: String): JSONObject =
+     if(existing) JSONObject().put("email",email).put("verification_token",verificationToken)
+     else emailRegistrationBody(email,verificationToken,username,password,nickname)
++
++internal fun memberAccountNicknameLabel(member:CloudFamilyMember,own:CloudAccountProfile?):String {
++    val self=own?.takeIf{it.uid==member.boundAuthUid.ifBlank{member.uid}}
++    if(self!=null)return self.nickname.ifBlank{"未设置账号昵称"}
++    if(member.profileUnavailable || member.accountNickname==null)return "账号昵称暂未读取，请刷新或核对云端资料接口"
++    return member.accountNickname.ifBlank{"未设置账号昵称"}
++}
+--- a/app/src/main/java/com/leo/jiarentong/AccountSecurityV32.kt
++++ b/app/src/main/java/com/leo/jiarentong/AccountSecurityV32.kt
+@@ -23,7 +23,7 @@
+ 
+ @Composable
+ internal fun V32LoginPanel(repo:FamilyCloudRepository,feedback:(String)->Unit) {
+-    var mode by remember{mutableStateOf("choose")}
++    var mode by remember{mutableStateOf("password")}
+     var email by remember{mutableStateOf("")};var name by remember{mutableStateOf("")}
+     var password by remember{mutableStateOf("")};var confirmation by remember{mutableStateOf("")}
+     var code by remember{mutableStateOf("")};var invite by remember{mutableStateOf("")}
+@@ -38,7 +38,7 @@
+             OutlinedButton(onClick={mode="invite"},modifier=Modifier.fillMaxWidth().heightIn(min=64.dp)){Text("通过邀请码加入家庭")}
+             Text("免邮箱加入只需管理员给的邀请码和昵称。换手机前建议绑定邮箱，或联系管理员恢复访问。")
+         } else {
+-            TextButton(enabled=!busy,onClick={mode="choose";password="";confirmation="";code="";challenge=null;message=""}){Text("← 返回选择加入方式")}
++            TextButton(enabled=!busy,onClick={mode="password";password="";confirmation="";code="";challenge=null;message=""}){Text("← 返回已有账号登录")}
+             if(mode=="invite") {
+                 Text("通过邀请码加入家庭",style=MaterialTheme.typography.titleLarge)
+                 OutlinedTextField(invite,{invite=it},label={Text("10位加入码 / 恢复码")},enabled=!busy,singleLine=true,modifier=Modifier.fillMaxWidth())
+@@ -46,7 +46,7 @@
+                 Button(enabled=!busy&&validV32Invite(invite)&&name.isNotBlank(),onClick={run{repo.joinWithoutEmail(invite,name);feedback("已加入家庭")}},modifier=Modifier.fillMaxWidth()){Text("加入 / 恢复家庭")}
+                 Text("无需邮箱和密码；请勿清除应用数据。正常重启和升级会保留身份。")
+             }else{
+-                Text(when(mode){"register"->"邮箱正式注册";"otp"->"已有邮箱验证码登录";"reset"->"忘记密码 · 邮箱验证找回";else->"邮箱 / 用户名密码登录"},style=MaterialTheme.typography.titleLarge)
++                Text(when(mode){"register"->"邮箱正式注册";"otp"->"已有邮箱验证码登录";"reset"->"忘记密码 · 邮箱验证找回";else->"欢迎回来"},style=MaterialTheme.typography.titleLarge)
+                 OutlinedTextField(email,{email=it;challenge=null;code=""},label={Text(if(mode=="password")"邮箱 / 用户名" else "邮箱")},enabled=!busy,singleLine=true,modifier=Modifier.fillMaxWidth(),keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Email))
+                 if(mode!="password") {
+                     OutlinedButton(enabled=!busy&&cooldown==0,onClick={
+@@ -67,11 +67,18 @@
+                         "reset"->{val ok=repo.resetPasswordWithEmail(challenge!!,code,password,confirmation);message=if(ok)"密码已更新，已登录原账号" else "密码已更新，请使用新密码登录；无需重新注册";challenge=null;code=""}
+                         else->{if(mode=="register")validateAccountPassword(password,confirmation);val r=repo.verifyEmail(challenge!!,code,"",password,name,mode=="register");feedback(r.profileWarning.ifBlank{"认证成功"})}
+                     }
+-                }},modifier=Modifier.fillMaxWidth()){Text(if(busy)"处理中…" else when(mode){"register"->"验证并注册";"otp"->"验证并登录";"reset"->"验证并重置密码";else->"登录"})}
++                }},modifier=Modifier.fillMaxWidth()){Text(if(busy)"处理中…" else when(mode){"register"->"验证并注册";"otp"->"验证并登录";"reset"->"验证并重置密码";else->"登录家庭共享"})}
+                 Row{TextButton(enabled=!busy,onClick={mode="register";challenge=null;password="";confirmation=""}){Text("邮箱注册")};TextButton(enabled=!busy,onClick={mode="otp";challenge=null;password=""}){Text("验证码登录")}}
+                 Row{TextButton(enabled=!busy,onClick={mode="password";password=""}){Text("密码登录")};TextButton(enabled=!busy,onClick={mode="reset";challenge=null;password="";confirmation=""}){Text("忘记密码")}}
+             }
+         }
++        Text("第一次使用？",style=MaterialTheme.typography.titleMedium)
++        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
++            Button(enabled=!busy,onClick={mode="register";challenge=null;password="";confirmation="";code=""},modifier=Modifier.weight(1f)){Text("创建家庭")}
++            OutlinedButton(enabled=!busy,onClick={mode="invite";challenge=null;password="";confirmation="";code=""},modifier=Modifier.weight(1f)){Text("加入家庭")}
++        }
++        Text("创建家庭须先完成正式账号认证，再在家庭列表创建。")
++        TextButton(enabled=!busy,onClick={mode="register";challenge=null;password="";confirmation="";code=""}){Text("注册新账号")}
+         if(busy)LinearProgressIndicator(Modifier.fillMaxWidth())
+         if(message.isNotBlank())Text(message,color=MaterialTheme.colorScheme.primary)
+     }
+--- a/app/src/main/java/com/leo/jiarentong/ExpensesFeatures.kt
++++ b/app/src/main/java/com/leo/jiarentong/ExpensesFeatures.kt
+@@ -87,9 +87,10 @@
+     var amount by remember { mutableStateOf("") }; var date by remember { mutableStateOf(todayV3()) }
+     var kind by remember { mutableStateOf(expenseCategories.first()) }; var note by remember { mutableStateOf("") }
+     var deleting by remember { mutableStateOf<String?>(null) }
+-    fun persist(next: List<JSONObject>) { if (writeV3(c, "expenses", next)) rows = next else hint(c, "保存失败，原数据未修改") }
++    fun persist(next: List<JSONObject>):Boolean { if (writeV3(c, "expenses", next)) { rows = next;return true };hint(c, "保存失败，请保留输入并重试");return false }
+     var detailCategory by remember { mutableStateOf<String?>(null) }
+-    val filtered = rows.filter { it.getString("date").startsWith(period) && (category == "全部类别" || it.getString("category") == category) }.sortedByDescending { it.getString("date") }
++    val validPeriod=period.matches(if(yearly)Regex("[0-9]{4}") else Regex("[0-9]{4}-(0[1-9]|1[0-2])"))
++    val filtered = rows.filter { validPeriod && it.getString("date").startsWith(period) && (category == "全部类别" || it.getString("category") == category) }.sortedByDescending { it.getString("date") }
+     val total = filtered.sumOf { it.getLong("cents") }
+     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+         if (uri != null) runCatching {
+@@ -104,6 +105,18 @@
+     var percent by remember { mutableIntStateOf(prefs.getInt("expense_card_percent", 100).coerceIn(50,200)) }
+     fun back() { if (detailCategory != null) { detailCategory = null; selectedId = null } else if (management) management = false else onBack() }
+     BackHandler(enabled = detailCategory != null || management) { back() }
++    var showAll by remember{mutableStateOf(false)}
++    var saving by remember{mutableStateOf(false)}
++    var attemptId by remember{mutableStateOf(UUID.randomUUID().toString())}
++    fun saveExpense(again:Boolean){
++        if(saving)return
++        val cents=expenseCents(amount.trim())
++        if(cents==null||!validDateV3(date)){hint(c,"请输入有效正金额和日期");return}
++        saving=true
++        try{val r=JSONObject(editing?.toString()?:"{}").put("id",editing?.getString("id")?:attemptId).put("cents",cents).put("date",date).put("category",kind).put("note",note)
++            if(persist(rows.filterNot{it.getString("id")==r.getString("id")}+r)){if(again&&editing==null){amount="";note="";attemptId=UUID.randomUUID().toString()}else show=false}
++        }finally{saving=false}
++    }
+     val detailRows = filtered.filter { detailCategory == null || it.getString("category") == detailCategory }
+     val selected = detailRows.find { it.getString("id") == selectedId }
+     V3Page(detailCategory ?: "家庭开支统计", { back() }) {
+@@ -111,12 +124,14 @@
+         Row { ChoiceV3(if (yearly) "按年" else "按月", listOf("按月", "按年")) { yearly = it == "按年"; period = if (yearly) period.take(4) else period.take(4) + todayV3().substring(4,7) }
+             ChoiceV3(category, listOf("全部类别") + expenseCategories) { category = it; detailCategory = null; selectedId = null } }
+         OutlinedTextField(period, { period = it; selectedId = null }, label = { Text(if (yearly) "年份，如 2026" else "月份，如 2026-10") })
+-        Text("所选期间总开支：¥${money(total)}", style = MaterialTheme.typography.titleLarge)
++        if(!validPeriod)Text("请输入有效月份或四位年份")
++        Text("所选期间总开支：¥${money(total)} · ${filtered.size} 笔", style = MaterialTheme.typography.titleLarge)
++        Button(onClick={editing=null;attemptId=UUID.randomUUID().toString();amount="";note="";date=todayV3();kind=expenseCategories.first();show=true},modifier=Modifier.fillMaxWidth().heightIn(min=56.dp)){Text("＋记一笔开支")}
+         Button(onClick = { management = !management; selectedId = null }) { Text(if (management) "完成管理" else "管理编辑") }
+         if (management) {
+             Text("点击记录选中，再使用上方统一操作。")
+             Row {
+-                TextButton(onClick = { editing = null; amount = ""; date = todayV3(); note = ""; kind = detailCategory ?: expenseCategories.first(); show = true }) { Text("添加") }
++                TextButton(onClick = { editing = null; attemptId=UUID.randomUUID().toString(); amount = ""; date = todayV3(); note = ""; kind = detailCategory ?: expenseCategories.first(); show = true }) { Text("添加") }
+                 TextButton(enabled = selected != null, onClick = { selected?.let { r -> editing = r; amount = money(r.getLong("cents")); date = r.getString("date"); kind = r.getString("category"); note = r.optString("note"); show = true } }) { Text("编辑选中") }
+                 TextButton(enabled = selected != null, onClick = { deleting = selectedId }) { Text("删除选中") }
+             }
+@@ -131,6 +146,10 @@
+                 val share = if (total == 0L) "0.0" else String.format(Locale.CHINA,"%.1f",sum.toDouble() / total * 100)
+                 "¥${money(sum)}  ·  ${records.size} 笔\n占比 $share% · 点击查看明细"
+             }, { detailCategory = it })
++            Text(if(showAll)"全部记录 · 当前筛选" else "最近开支 · 当前筛选")
++            OutlinedButton(onClick={showAll=!showAll}){Text(if(showAll)"只看最近5笔" else "查看全部记录")}
++            (if(showAll)filtered else filtered.take(5)).forEach{r->Card(Modifier.fillMaxWidth()){Column(Modifier.padding(12.dp)){Text("${r.getString("date")} · ${r.getString("category")} · ¥${money(r.getLong("cents"))}");Text(r.optString("note"))}}}
++
+         } else {
+             if (detailCategory != null) Text("分类合计：¥${money(detailRows.sumOf { it.getLong("cents") })} · ${detailRows.size} 笔")
+             detailRows.forEach { r ->
+@@ -146,17 +165,14 @@
+             if (detailRows.isEmpty()) Text("所选条件下暂无开支")
+         }
+     }
+-    if (show) AlertDialog(onDismissRequest = { show = false }, title = { Text("开支记录") }, text = { Column(Modifier.verticalScroll(rememberScrollState())) {
++    if (show) AlertDialog(onDismissRequest = { if(!saving)show = false }, title = { Text("开支记录") }, text = { Column(Modifier.verticalScroll(rememberScrollState())) {
+         OutlinedTextField(amount, { amount = it }, label = { Text("金额（元，最多两位小数）") })
+         OutlinedTextField(date, { date = it }, label = { Text("日期 yyyy-MM-dd") })
+         ChoiceV3(kind, expenseCategories) { kind = it }; OutlinedTextField(note, { note = it }, label = { Text("备注（选填）") })
+-    } }, confirmButton = { TextButton(onClick = {
+-        val cents = expenseCents(amount.trim())
+-        if (cents == null || !validDateV3(date)) hint(c, "请输入有效的正金额和日期（单笔不超过十亿元）") else {
+-            val r = JSONObject().put("id", editing?.getString("id") ?: UUID.randomUUID().toString()).put("cents", cents).put("date", date).put("category", kind).put("note", note)
+-            persist(rows.filterNot { it.getString("id") == r.getString("id") } + r); show = false
+-        }
+-    }) { Text("保存") } }, dismissButton = { TextButton(onClick = { show = false }) { Text("取消") } })
++    } }, confirmButton = {Column{
++        if(editing==null)TextButton(enabled=!saving,onClick={saveExpense(true)}){Text("保存并再记一笔")}
++        TextButton(enabled=!saving,onClick={saveExpense(false)}){Text("保存并返回")}
++    }}, dismissButton = {TextButton(enabled=!saving,onClick={show=false}){Text("取消")}})
+     if (deleting != null) AlertDialog(onDismissRequest = { deleting = null }, title = { Text("确定删除开支？") }, confirmButton = { TextButton(onClick = { persist(rows.filterNot { it.getString("id") == deleting }); deleting = null }) { Text("删除") } }, dismissButton = { TextButton(onClick = { deleting = null }) { Text("取消") } })
+ }
+ 
+--- a/app/src/main/java/com/leo/jiarentong/FamilyAttentionV321.kt
++++ b/app/src/main/java/com/leo/jiarentong/FamilyAttentionV321.kt
+@@ -0,0 +1,31 @@
++package com.leo.jiarentong
++
++import android.content.Context
++import kotlinx.coroutines.currentCoroutineContext
++import kotlinx.coroutines.ensureActive
++
++/** 角标规则：本人成员/未分配待办、未采购、本月未结束日程；其余仍用未读消息。 */
++internal fun attentionCountV321(rows:List<CollabRecord>,family:String,memberUid:String,now:Long=System.currentTimeMillis()):Int {
++    val month=collabFormat("yyyy-MM").format(java.util.Date(now))
++    return rows.filter{it.familyId==family && !it.deleted}.distinctBy{it.id}.count{r->
++        val f=r.fields
++        attentionEligibleV321(r.module,f.optBoolean("completed"),f.optString("assigneeUid"),memberUid,f.optString("date"),f.optString("endTime"),month,now)
++    }
++}
++internal fun attentionEligibleV321(module:CollabModule,completed:Boolean,assignee:String,memberUid:String,date:String,end:String,month:String,now:Long):Boolean=when(module){
++    CollabModule.TODO -> !completed && (assignee.isBlank()||assignee==memberUid)
++    CollabModule.SHOPPING -> !completed
++    CollabModule.SCHEDULE -> date.take(7)==month && collabEventAt(date,end.ifBlank{"23:59"})>now
++    else -> false
++}
++internal suspend fun loadAttentionV321(context:Context,uid:String,family:String,memberUid:String):Map<String,Int>{
++    val repo=FamilyCollabRepository.get(context);val now=System.currentTimeMillis()
++    val month=collabFormat("yyyy-MM").format(java.util.Date(now));val counts=mutableMapOf<String,Int>()
++    for(module in listOf(CollabModule.TODO,CollabModule.SCHEDULE,CollabModule.SHOPPING)){
++        currentCoroutineContext().ensureActive()
++        val page=repo.records(uid,family,module,month)
++        if(!page.complete)throw CloudFailure("超过完整统计范围，角标暂不显示，请进入板块查看",code="partial")
++        counts[module.key]=attentionCountV321(page.records,family,memberUid,now)
++    }
++    return counts
++}
+--- a/app/src/main/java/com/leo/jiarentong/FamilyCollaborationPanel.kt
++++ b/app/src/main/java/com/leo/jiarentong/FamilyCollaborationPanel.kt
+@@ -34,7 +34,18 @@
+     var recoveryTarget by remember{mutableStateOf<CloudFamilyMember?>(null)}
+     var roleTarget by remember{mutableStateOf<CloudFamilyMember?>(null)}
+     val noticeTotals by FamilyNoticesV32.state.collectAsState()
++    var attention by remember(uid,selected?.id){mutableStateOf<Map<String,Int>?>(null)}
++    var attentionError by remember(uid,selected?.id){mutableStateOf("")}
+     val context=androidx.compose.ui.platform.LocalContext.current
++    LaunchedEffect(uid,selected?.id,home,noticeTotals){
++        attention=null;attentionError=""
++        val family=selected?.id;val self=familyMemberForAuthUid(home?.members.orEmpty(),uid)
++        if(family!=null&&self!=null)try{
++            val fresh=loadAttentionV321(context,uid,family,self.uid)
++            currentCoroutineContext().ensureActive()
++            if(repo.uid.value==uid&&selected?.id==family)attention=fresh
++        }catch(e:CancellationException){throw e}catch(e:Exception){attentionError=cloudFailureDisplay(e)}
++    }
+     val recent=context.getSharedPreferences("family_recent_v32",0)
+     suspend fun load(id: String) {
+         home=null
+@@ -70,6 +81,8 @@
+         if(selected!=null && families.none{it.id==selected?.id}) {selected=null;home=null;confirm="";memberTarget=null;invite="";form=""}
+     }
+     BackHandler(enabled=form.isNotEmpty() || selected!=null) { if(!working) { if(form.isNotEmpty())form="" else if(section!="center")section="center" else {selected=null;home=null} } }
++    if(attentionError.isNotBlank())Text("待处理角标暂未核实："+attentionError)
++    if(noticeTotals.error.isNotBlank())Text(noticeTotals.error)
+     val enabled=!working && !parentBusy
+     val owner=familyOwner(selected?.ownerUid.orEmpty(),uid)
+     if(message.isNotBlank()) Card(colors=CardDefaults.cardColors(containerColor=Color(0xFFFFF2E6))) { Text(message,Modifier.padding(14.dp)) }
+@@ -132,9 +145,9 @@
+                             enabled=enabled && home!=null,modifier=Modifier.weight(1f).fillMaxHeight().heightIn(min=144.dp),shape=RoundedCornerShape(18.dp),
+                             colors=CardDefaults.cardColors(containerColor=Color(module.tint))) {
+                             Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+-                                Row(Modifier.fillMaxWidth()){Text(module.icon,style=MaterialTheme.typography.headlineSmall,modifier=Modifier.weight(1f));if(noticeTotals.uid==uid)FamilyBadgeV32(noticeTotals.families[f.id]?.get(module.key)?:0)}
++                                Row(Modifier.fillMaxWidth()){Text(module.icon,style=MaterialTheme.typography.headlineSmall,modifier=Modifier.weight(1f));if(module in listOf(CollabModule.TODO,CollabModule.SCHEDULE,CollabModule.SHOPPING))FamilyBadgeV32(attention?.get(module.key)?:0) else if(noticeTotals.uid==uid&&noticeTotals.error.isBlank())FamilyBadgeV32(noticeTotals.families[f.id]?.get(module.key)?:0)}
+                                 Text(module.title,style=MaterialTheme.typography.titleMedium)
+-                                Text(module.hint)
++                                Text(when(module){CollabModule.TODO->"本人及未分配的未完成待办";CollabModule.SCHEDULE->"本月尚未结束的日程";CollabModule.SHOPPING->"尚未采购的记录";else->"未读变更消息"})
+                             }
+                         }
+                     }
+@@ -163,9 +176,8 @@
+         home?.members?.forEach { member ->
+             Card(Modifier.fillMaxWidth(),colors=CardDefaults.cardColors(containerColor=Color(0xFFF0EAF6))) {
+                 Column(Modifier.padding(14.dp)) {
+-                    Text(memberVisibleNickname(member,accountProfile),style=MaterialTheme.typography.titleMedium)
+-                    if(memberVisibleNickname(member,accountProfile)!=member.displayName)Text("家庭称呼："+member.displayName)
+-                    if(member.profileUnavailable)Text("账号昵称暂未读取，当前显示家庭称呼")
++                    Text("账号昵称："+memberAccountNicknameLabel(member,accountProfile),style=MaterialTheme.typography.titleMedium)
++                    Text("家庭称呼："+member.displayName)
+                     Text((if(member.role=="admin")"家庭管理员" else familyRoleLabel(member.uid==f.ownerUid)) + if(member.boundAuthUid==uid||member.uid==uid) "（我）" else "")
+                     if((owner||f.role=="admin") && member.authKind=="anonymous" && member.role=="member" && member.memberId.isNotBlank())TextButton(enabled=enabled,onClick={recoveryTarget=member}){Text("恢复成员访问")}
+                     if(owner && member.uid!=f.ownerUid && member.authKind!="anonymous" && member.memberId.isNotBlank())TextButton(enabled=enabled,onClick={roleTarget=member}){Text(if(member.role=="admin")"取消管理员" else "设为管理员")}
+--- a/app/src/main/java/com/leo/jiarentong/FamilyNoticesV32.kt
++++ b/app/src/main/java/com/leo/jiarentong/FamilyNoticesV32.kt
+@@ -23,23 +23,25 @@
+ import kotlinx.coroutines.flow.asStateFlow
+ import org.json.JSONObject
+ 
+-internal data class NoticeTotalsV32(val uid:String?=null,val total:Int=0,val families:Map<String,Map<String,Int>> = emptyMap(),val error:String="")
++internal data class NoticeTotalsV32(val uid:String?=null,val total:Int=0,val families:Map<String,Map<String,Int>> = emptyMap(),val error:String="",val refreshedAt:Long=System.nanoTime())
+ internal object FamilyNoticesV32 {
+     private val current=MutableStateFlow(NoticeTotalsV32())
+     val state=current.asStateFlow()
+-    fun clear(uid:String?=null){current.value=NoticeTotalsV32(uid)}
++    private val generation=java.util.concurrent.atomic.AtomicLong()
++    fun clear(uid:String?=null){generation.incrementAndGet();current.value=NoticeTotalsV32(uid)}
+     suspend fun sync(context:Context,banners:Boolean=false){
+         val repo=FamilyCloudRepository.get(context);val uid=repo.uid.value ?: return clear()
+         if(current.value.uid!=uid)clear(uid)
++        val own=generation.incrementAndGet()
+         try{
+             var r=repo.v32Action("v32Unread");var batches=1
+             while(r.optBoolean("deliveryPending")&&batches<5){r=repo.v32Action("v32Unread");batches++}
+-            if(repo.uid.value!=uid)return
++            if(repo.uid.value!=uid||generation.get()!=own)return
+             val families=r.getJSONObject("byFamily");val values=mutableMapOf<String,Map<String,Int>>()
+             families.keys().forEach{family->val modules=families.getJSONObject(family).getJSONObject("modules");values[family]=modules.keys().asSequence().associateWith{modules.getInt(it)}}
+             current.value=NoticeTotalsV32(uid,r.getInt("total"),values,if(r.optBoolean("deliveryPending"))"新消息仍在投递，请稍后刷新" else "")
+             if(banners)postBanners(context,uid,r)
+-        }catch(e:CancellationException){throw e}catch(e:Exception){if(repo.uid.value==uid)current.value=NoticeTotalsV32(uid,error=cloudFailureDisplay(e))}
++        }catch(e:CancellationException){throw e}catch(e:Exception){if(repo.uid.value==uid&&generation.get()==own)current.value=NoticeTotalsV32(uid,error=cloudFailureDisplay(e))}
+     }
+     fun clearAccountNotifications(context:Context,uid:String){
+         val manager=context.getSystemService(NotificationManager::class.java)
+--- a/app/src/test/java/com/leo/jiarentong/V321FixTest.kt
++++ b/app/src/test/java/com/leo/jiarentong/V321FixTest.kt
+@@ -0,0 +1,28 @@
++package com.leo.jiarentong
++import org.junit.Assert.*
++import org.junit.Test
++class V321FixTest {
++ @Test fun recoveredOwnProfileUsesAuthenticationUidNotHistoricalMemberUid(){
++  val m=CloudFamilyMember("old","老爸","member",profileUnavailable=true,boundAuthUid="new")
++  assertEquals("现在努力",memberAccountNicknameLabel(m,CloudAccountProfile("new","现在努力","")))
++  assertEquals("老爸",m.displayName)
++  assertTrue(memberAccountNicknameLabel(m,CloudAccountProfile("outsider","不应显示","")).contains("暂未读取"))
++ }
++ @Test fun emptyAndUnavailableProfilesAreDifferent(){
++  assertEquals("未设置账号昵称",memberAccountNicknameLabel(CloudFamilyMember("A","老爸","owner",accountNickname=""),null))
++  assertTrue(memberAccountNicknameLabel(CloudFamilyMember("A","老爸","owner",profileUnavailable=true),null).contains("暂未读取"))
++  assertEquals("未设置账号昵称",memberAccountNicknameLabel(CloudFamilyMember("A","老爸","owner"),CloudAccountProfile("A","","")))
++ }
++ private fun eligible(module:CollabModule,completed:Boolean=false,assignee:String="",date:String="2026-10-24",end:String="13:00")=
++  attentionEligibleV321(module,completed,assignee,"A",date,end,"2026-10",collabEventAt("2026-10-24","12:00"))
++ @Test fun todoCompletionAndAssignment(){
++  assertTrue(eligible(CollabModule.TODO));assertTrue(eligible(CollabModule.TODO,assignee="A"));assertFalse(eligible(CollabModule.TODO,assignee="B"));assertFalse(eligible(CollabModule.TODO,completed=true))
++ }
++ @Test fun scheduleOnlyUnfinishedThisMonthInShanghai(){
++  assertTrue(eligible(CollabModule.SCHEDULE));assertTrue(eligible(CollabModule.SCHEDULE,end=""));assertFalse(eligible(CollabModule.SCHEDULE,end="11:00"));assertFalse(eligible(CollabModule.SCHEDULE,date="2026-09-24"));assertFalse(eligible(CollabModule.SCHEDULE,date="2026-11-24"))
++ }
++ @Test fun shoppingCompletionDoesNotEraseUnreadMessages(){
++  assertTrue(eligible(CollabModule.SHOPPING));assertFalse(eligible(CollabModule.SHOPPING,completed=true));assertFalse(eligible(CollabModule.MEMO));assertFalse(eligible(CollabModule.NOTICE));assertFalse(eligible(CollabModule.LEDGER))
++ }
++ @Test fun amountsRemainIntegerCents(){assertEquals(30L,expenseCents("0.10")!!+expenseCents("0.20")!!);assertNull(expenseCents("1.001"))}
++}
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -13,8 +13,8 @@
+         applicationId = "com.leo.jiarentong"
+         minSdk = 24
+         targetSdk = 37
+-        versionCode = 13
+-        versionName = "3.2"
++        versionCode = 14
++        versionName = "3.2.1"
+ 
+         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+     }

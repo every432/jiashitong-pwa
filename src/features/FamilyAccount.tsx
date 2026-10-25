@@ -9,6 +9,7 @@ import FamilyWorkspace from './family/FamilyWorkspace';
 import AccountSecurityV32,{PasswordInput} from './AccountSecurityV32';
 import {validatePassword} from '../cloud/authPolicyV32';
 import {noticeStore} from './family/useNoticesV32';
+import InviteResultReviewV321 from './family/InviteResultReviewV321';
 
 export default function FamilyAccount({onBack}:{onBack:()=>void}){
  const [session]=useState(()=>createAccountSession(()=>cloudBasePort(cloudConfig({publishableKey:import.meta.env.VITE_CLOUDBASE_PUBLISHABLE_KEY,keyConfirmed:import.meta.env.VITE_CLOUDBASE_PUBLIC_KEY_CONFIRMED}))));
@@ -39,7 +40,7 @@ export default function FamilyAccount({onBack}:{onBack:()=>void}){
  {state.busy&&<p role="status" className="notice">正在连接原账号服务，请稍候…</p>}
  {(localError||state.error)&&<section role="alert" className="notice account-error"><p>{localError||state.error?.message}</p>{!localError&&state.error&&<small>阶段：{state.error.stage} · 错误码：{state.error.code}</small>}</section>}
  {state.notice&&(!verified||accountOpen)&&<p role="status" className="notice success">{state.notice}</p>}
- {state.profile?<>{(!verified||accountOpen)&&<>
+ {state.profile?<>{verified&&<InviteResultReviewV321 key={state.profile.uid} uid={state.profile.uid} families={state.families} port={()=>cloudBasePort(cloudConfig({publishableKey:import.meta.env.VITE_CLOUDBASE_PUBLISHABLE_KEY,keyConfirmed:import.meta.env.VITE_CLOUDBASE_PUBLIC_KEY_CONFIRMED}))}/>} {(!verified||accountOpen)&&<>
   <section className="panel"><h2>我的账号</h2><dl className="account-details"><dt>账号昵称</dt><dd>{state.profile.nickname||'尚未设置'}</dd><dt>邮箱</dt><dd>{state.profile.email||'账号未提供邮箱'}</dd><dt>用户名</dt><dd>{state.profile.username||'账号未设置用户名'}</dd><dt>Web SDK UID</dt><dd className="account-uid">{state.profile.uid}</dd></dl>
    <p>{state.profile.anonymous?'免邮箱成员 · 当前浏览器会话':'正式账号'}</p><Actions><button className="btn secondary" onClick={()=>void copy()}>复制账号 UID</button><button className="btn secondary" disabled={disabled||state.phase==='blocked'} onClick={()=>{setNickname(state.profile!.nickname);setEditNickname(true);}}>修改账号昵称</button><button className="btn secondary" disabled={disabled||state.phase==='blocked'} onClick={()=>setSecurity(true)}>{state.profile.anonymous?'绑定邮箱与设置密码':'账户安全'}</button></Actions>
   </section>
@@ -50,15 +51,13 @@ export default function FamilyAccount({onBack}:{onBack:()=>void}){
   </section>
   </>}{verified&&<FamilyWorkspace key={state.profile.uid} uid={state.profile.uid} anonymous={state.profile.anonymous===true} nativeOnly={state.identity==='nativeMatched'} families={state.families} identity={()=>{const latest=session.getSnapshot();return{uid:latest.profile?.uid??'',verified:['allMatched','nativeMatched'].includes(latest.identity)&&latest.phase==='signedIn'};}}/>}
  </>:state.phase!=='starting'&&<section className="panel">
-  <div className="account-tabs" role="group" aria-label="选择登录或注册"><button className={`btn ${flow==='login'?'primary':'secondary'}`} disabled={disabled} aria-pressed={flow==='login'} onClick={()=>selectFlow('login')}>登录已有账号</button><button className={`btn ${flow==='register'?'primary':'secondary'}`} disabled={disabled} aria-pressed={flow==='register'} onClick={()=>selectFlow('register')}>注册新账号</button></div>
-  <h2>{flow==='login'?'登录安卓版已有账号':'邮箱正式注册'}</h2>
-  <Actions><button className="btn secondary" disabled={disabled} onClick={()=>setAnonymousEntry(!anonymousEntry)}>免邮箱 · 邀请加入 / 新设备恢复</button><button className="text-btn" disabled={disabled} onClick={()=>setSecurity(true)}>忘记密码</button></Actions>
-  {anonymousEntry&&<form className="panel" onSubmit={e=>{e.preventDefault();void session.anonymousJoin(joinCode,familyNickname);}}><h3>10位一次性加入码 / 恢复码</h3><Field label="10位加入码或恢复码"><input value={joinCode} onChange={e=>setJoinCode(e.target.value)} autoCapitalize="characters" autoComplete="off" spellCheck={false} maxLength={10} required disabled={disabled}/></Field><Field label="我的家庭昵称"><input value={familyNickname} onChange={e=>setFamilyNickname(e.target.value)} maxLength={40} required disabled={disabled}/></Field><button className="btn primary wide" disabled={disabled}>以免邮箱身份加入 / 恢复家庭</button><p className="hint">通过官方匿名认证获得真实UID。不会替换已有正式账号。请保留浏览器网站数据，加入后建议绑定邮箱；清理数据可能丢失身份。</p></form>}
+  <h2>{flow==='login'?'欢迎回来':'邮箱正式注册'}</h2>
+  {flow==='register'&&<button className="text-btn" disabled={disabled} onClick={()=>selectFlow('login')}>返回已有账号登录</button>}
   {flow==='login'&&<div className="account-tabs" role="group" aria-label="登录方式"><button className={`btn ${method==='password'?'primary':'ghost'}`} disabled={disabled} aria-pressed={method==='password'} onClick={()=>{setMethod('password');session.clearChallenge();clearSecrets();}}>用户名 / 邮箱密码</button><button className={`btn ${method==='email'?'primary':'ghost'}`} disabled={disabled} aria-pressed={method==='email'} onClick={()=>{setMethod('email');session.clearChallenge();clearSecrets();}}>邮箱验证码</button></div>}
   {flow==='login'&&method==='password'?<form onSubmit={e=>{e.preventDefault();setLocalError('');const pending=session.passwordLogin(account,password);clearSecrets();void pending;}}>
    <Field label="用户名或邮箱"><input value={account} onChange={e=>setAccount(e.target.value)} autoComplete="username" autoCapitalize="none" autoCorrect="off" required disabled={disabled}/></Field>
    <PasswordInput label="账号密码" value={password} onChange={setPassword} disabled={disabled}/>
-   <button className="btn primary wide" disabled={disabled}>登录原账号</button><p className="hint">登录失败不会自动注册。尚未设置密码时，请使用邮箱验证码登录。</p>
+   <button className="btn primary wide" disabled={disabled}>登录家庭共享</button><p className="hint">登录失败不会自动注册。尚未设置密码时，请使用邮箱验证码登录。</p>
   </form>:<>
    <form onSubmit={e=>{e.preventDefault();send();}}>
     <Field label="账号邮箱"><input type="email" value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email" autoCapitalize="none" autoCorrect="off" required disabled={disabled||!!challenge}/></Field>
@@ -68,6 +67,11 @@ export default function FamilyAccount({onBack}:{onBack:()=>void}){
    {challenge&&<form className="account-verification" onSubmit={e=>{e.preventDefault();const pending=session.verifyCode(code);setCode('');void pending;}}><p>正在验证：{challenge.email}</p><Field label="邮箱验证码"><input value={code} onChange={e=>setCode(e.target.value)} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{4,8}" maxLength={8} required disabled={disabled}/></Field><button className="btn primary wide" disabled={disabled}>{challenge.flow==='register'?'确认验证码并注册新账号':'确认验证码并登录'}</button><button type="button" className="text-btn" disabled={disabled} onClick={()=>{session.clearChallenge();clearSecrets();}}>更换邮箱 / 重新发送</button><p className="hint">本页验证会话最多保留10分钟；验证码有效期以云端为准。若已过期，请重新发送。切换页面会放弃本次验证。</p></form>}
    <p className="hint">若出现腾讯云安全验证码，请按官方验证窗口操作；风控或发送限制不会被绕过。</p>
   </>}
+ <button className="text-btn" disabled={disabled} onClick={()=>setSecurity(true)}>忘记密码</button>
+ <hr/><h3>第一次使用？</h3><Actions><button className="btn primary" disabled={disabled} onClick={()=>{setAnonymousEntry(false);selectFlow('register');}}>创建家庭</button><button className="btn secondary" disabled={disabled} onClick={()=>{setAnonymousEntry(!anonymousEntry);session.clearChallenge();clearSecrets();}}>加入家庭</button></Actions>
+ <p className="hint">创建家庭须先注册或登录正式账号，认证成功后在家庭列表创建。</p>
+  {anonymousEntry&&<form className="panel" onSubmit={e=>{e.preventDefault();void session.anonymousJoin(joinCode,familyNickname);}}><h3>10位一次性加入码 / 恢复码</h3><Field label="10位加入码或恢复码"><input value={joinCode} onChange={e=>setJoinCode(e.target.value)} autoCapitalize="characters" autoComplete="off" spellCheck={false} maxLength={10} required disabled={disabled}/></Field><Field label="我的家庭昵称"><input value={familyNickname} onChange={e=>setFamilyNickname(e.target.value)} maxLength={40} required disabled={disabled}/></Field><button className="btn primary wide" disabled={disabled}>以免邮箱身份加入 / 恢复家庭</button><p className="hint">通过官方匿名认证获得真实UID。不会替换已有正式账号。请保留浏览器网站数据，加入后建议绑定邮箱；清理数据可能丢失身份。</p></form>}
+ <button className="text-btn" disabled={disabled} onClick={()=>{setAnonymousEntry(false);selectFlow('register');}}>注册新账号</button>
  </section>}
  {(!verified||accountOpen)&&<Actions><button className="btn secondary" disabled={disabled} onClick={()=>void session.refresh()}>刷新账号与身份</button><button className="btn ghost" onClick={()=>setLogout(true)}>退出本机账号</button></Actions>}
  {state.phase==='blocked'&&<p className="notice">已停止家庭读取。请核对原账号，或退出后重新登录；不要创建同名家庭。</p>}

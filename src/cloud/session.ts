@@ -1,11 +1,15 @@
 import type {AccountProfile,AuthPort,EmailChallenge,EmailFlow,FamilySummary,SafeIssue,Stage} from './types.ts';
 import {accountIssue,aborted,cancelable,failAccount,isAborted} from './errors.ts';
 import {assertSameUid,listMyFamilies,normalizeNickname,whoAmI,functionPayload,parseFamilies} from './familyApi.ts';
+import {browserPendingStore} from './pending.ts';
+import {consumeInviteSafely} from './inviteJoinV321.ts';
+import type {PendingStore} from './familyTypes.ts';
+import {familyError} from './familyErrors.ts';
 import {newInvite,hasControls} from './authPolicyV32.ts';
 
 export type AccountState={phase:'starting'|'signedOut'|'signedIn'|'blocked';profile:AccountProfile|null;functionUid:string;androidUid:string;identity:'pending'|'webMatched'|'allMatched'|'nativeMatched'|'mismatch';families:FamilySummary[];familiesLoaded:boolean;busy:boolean;error:SafeIssue|null;notice:string;challenge:{email:string;flow:EmailFlow;expiresAt:number}|null;cooldownUntil:number};
 const initial=():AccountState=>({phase:'starting',profile:null,functionUid:'',androidUid:'',identity:'pending',families:[],familiesLoaded:false,busy:false,error:null,notice:'',challenge:null,cooldownUntil:0});
-export function createAccountSession(factory:()=>Promise<AuthPort>,now=()=>Date.now()){
+export function createAccountSession(factory:()=>Promise<AuthPort>,now=()=>Date.now(),pending:()=>PendingStore=browserPendingStore){
  let state=initial(),scope=new AbortController(),active=true,portPromise:Promise<AuthPort>|undefined,unsubscribe:(()=>void)|undefined,challenge:EmailChallenge|null=null;
  const listeners=new Set<()=>void>();
  const publish=(patch:Partial<AccountState>)=>{if(!active)return;state={...state,...patch};listeners.forEach(fn=>fn());};
@@ -82,11 +86,23 @@ export function createAccountSession(factory:()=>Promise<AuthPort>,now=()=>Date.
   publish({profile:after,phase:'signedIn',identity:'nativeMatched',families,familiesLoaded:true,busy:false,notice:'当前Web身份与云函数UID及V3.2身份类型已核对。原安卓账号仍需单独核对安卓版UID。'});
  }
  async function anonymousJoin(raw:string,displayName:string){
-  if(state.busy)return;const signal=begin();
-  try{const invitation=newInvite(raw);if(!displayName.trim()||Array.from(displayName.trim()).length>40||hasControls(displayName))failAccount('PASSWORD_LOGIN','INVALID_NICKNAME','家庭昵称需1～40字，不能含控制字符。');
-   const api=await cancelable(port(),signal);valid(signal);watch(api);await cancelable(api.anonymousLogin(),signal);valid(signal);const profile=await api.profile();valid(signal);if(!profile.anonymous)failAccount('WHO_AM_I','ANONYMOUS_REQUIRED','恢复入口只允许真实匿名身份。','identity');const uid=await whoAmI(api,profile.uid,signal);valid(signal);const capability=functionPayload(await api.callFamily('v32Capabilities',{},uid,signal),'FAMILY_REQUEST');if(capability.version!=='3.2'||capability.anonymous!==true)failAccount('WHO_AM_I','V32_IDENTITY_UNSUPPORTED','当前后端未确认匿名协议，未提交加入。','identity');
-   functionPayload(await api.callFamily('v32ConsumeInvite',{inviteCode:invitation,displayName:displayName.trim(),type:invitation[0]==='R'?'recovery':'join'},uid,signal),'FAMILY_REQUEST');valid(signal);await resume(signal);
-  }catch(error){issue(error,'PASSWORD_LOGIN',signal);}
+  if(state.busy)return;const signal=begin();let stage:Stage='CONSUME_INVITE';
+  try{const invitation=newInvite(raw);if(!displayName.trim()||Array.from(displayName.trim()).length>40||hasControls(displayName))failAccount(stage,'INVALID_NICKNAME','家庭昵称需1～40字，不能含控制字符。');
+   stage='CONFIG';const api=await cancelable(port(),signal);valid(signal);watch(api);
+   stage='ANONYMOUS_LOGIN';await cancelable(api.anonymousLogin(),signal);valid(signal);
+   stage='ANONYMOUS_PROFILE';const profile=await cancelable(api.profile(),signal);valid(signal);
+   if(!profile.anonymous)failAccount(stage,'ANONYMOUS_REQUIRED','请使用正式账号的加入入口，不会替换当前身份。','identity');
+   stage='WHO_AM_I';const uid=await whoAmI(api,profile.uid,signal);valid(signal);
+   stage='V32_CAPABILITIES';const capability=functionPayload(await api.callFamily('v32Capabilities',{},uid,signal),stage);valid(signal);
+   if(capability.version!=='3.2'||capability.anonymous!==true)failAccount(stage,'V32_IDENTITY_UNSUPPORTED','后端未确认匿名协议，未提交加入。','identity');
+   stage='CONSUME_INVITE';await consumeInviteSafely(api,pending(),uid,invitation,displayName.trim(),signal);valid(signal);
+   stage='JOIN_VERIFY';await resume(signal);
+  }catch(error){
+   if(stage==='CONSUME_INVITE'||stage==='JOIN_VERIFY'){
+    if(isAborted(error))return;const e=familyError(error,stage);if(e.action==='JOIN_VERIFY'||e.action==='LIST_MY_FAMILIES')stage=e.action;
+    issue({code:e.code},stage,signal);if(!signal.aborted)publish({error:{stage,code:e.code,message:e.message,kind:'unknown'}});
+   }else issue(error,stage,signal);
+  }
  }
  async function confirmWebAccount(){if(state.busy)return;const signal=begin(false);try{await confirmNative(signal);}catch(error){issue(error,'WHO_AM_I',signal);}}
  async function checkAndroid(raw:string){

@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {releaseBlockers} from './check-release-gates.mjs';
+const record=()=>({schemaVersion:1,environment:'jiashitong-d4g8m8lfcdc047ffe',gates:['SEC-01','SEC-02','SEC-03','REL-01','REL-03'].map(id=>({id,status:'verified',evidence:['synthetic-test-reference']}))});
+test('E 未核验发布门禁明确阻断，不因Mock/构建结果自动放行',()=>{const v=record();v.gates.forEach(g=>{g.status='unverified';g.evidence=[];});assert.deepEqual(releaseBlockers(v),['SEC-01','SEC-02','SEC-03','REL-01','REL-03']);});
+test('E 门禁要求每项唯一且有核验证据，漏项/重复/空证据/改环境均拒绝',()=>{assert.deepEqual(releaseBlockers(record()),[]);for(const change of [v=>v.gates.pop(),v=>v.gates.push(v.gates[0]),v=>{v.gates[0].evidence=[];},v=>{v.gates[0].status='mock-passed';},v=>{v.environment='other';}]){const v=record();change(v);assert.ok(releaseBlockers(v).length);}});

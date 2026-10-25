@@ -83,7 +83,7 @@ export function createSdkPort(app:App):AuthPort {
    });
   },
 
-  async anonymousLogin(){await mutate(async()=>{checkQuarantine();const current=await restoreDirect();if(current){if(!current.anonymous)failAccount('PASSWORD_LOGIN','FORMAL_SESSION_EXISTS','当前为正式账号，请使用正式账号邀请码加入，不会替换身份。');return;}const result=await auth.signInAnonymously();sdkError(result);const profile=await profileDirect();if(!profile.anonymous)failAccount('PASSWORD_LOGIN','ANONYMOUS_IDENTITY_MISMATCH','官方SDK未返回匿名身份，已停止。','identity');});},
+  async anonymousLogin(){await mutate(async()=>{checkQuarantine();let current:AccountProfile|null;try{current=await restoreDirect();}catch(e){throw new AccountError(accountIssue(e,'RESTORE_SESSION'));}if(current){if(!current.anonymous)failAccount('ANONYMOUS_LOGIN','FORMAL_SESSION_EXISTS','当前为正式账号，请使用正式账号邀请码加入，不会替换身份。');return;}try{const result=await auth.signInAnonymously();sdkError(result);}catch(e){throw new AccountError(accountIssue(e,'ANONYMOUS_LOGIN'));}let profile:AccountProfile;try{profile=await profileDirect();}catch(e){throw new AccountError(accountIssue(e,'ANONYMOUS_PROFILE'));}if(!profile.anonymous)failAccount('ANONYMOUS_PROFILE','ANONYMOUS_IDENTITY_MISMATCH','官方SDK未返回匿名身份，已停止。','identity');});},
   async sendPasswordReset(value){
    const address=email(value,'SEND_LOGIN_CODE');await lane;
    return privateSdkCall(async()=>{const before=await restoreDirect();if(before&&(before.anonymous||before.email.toLowerCase()!==address.toLowerCase()))failAccount('GET_PROFILE','EMAIL_ACCOUNT_MISMATCH','只能为当前正式账号已绑定的邮箱设置密码；请勿切换身份。');

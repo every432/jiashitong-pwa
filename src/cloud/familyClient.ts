@@ -40,7 +40,7 @@ export class FamilyClient{
   finally{release();}
  }
  async families(signal:AbortSignal):Promise<FamilySummary[]>{return parseFamilies(await this.call('listMyFamilies',{},signal));}
- async home(family:string,signal:AbortSignal):Promise<Home>{id(family);const first=await this.call('getFamily',{familyId:family},signal),members=await this.call('listMembers',{familyId:family},signal);return parseHome(first,members,this.gate().uid,family);}
+ async home(family:string,signal:AbortSignal):Promise<Home>{id(family);const first=await this.call('getFamily',{familyId:family},signal),members=await this.call('listMembers',{familyId:family},signal);const home=parseHome(first,members,this.gate().uid,family);const profile=await this.port.profile();if(signal.aborted)throw aborted();if(profile.uid!==this.gate().uid)throw new FamilyError('IDENTITY','LIST_MEMBERS');const self=home.members.find(m=>(m.boundAuthUid??m.uid)===profile.uid);if(self){self.accountNickname=profile.nickname;self.profileUnavailable=false;}return home;}
  async pendingCreation(){return !!await this.pending.read(this.slot('all','create-family'));}
  async allowCreationRetry(signal:AbortSignal):Promise<Family|null>{const key=this.slot('all','create-family');return this.exclusive(key,signal,async()=>{const found=await this.reconcileCreation(signal);if(found)return found;if(signal.aborted)throw aborted();await this.pending.ack(key);return null;});}
  async reconcileCreation(signal:AbortSignal):Promise<Family|null>{

@@ -1,0 +1,42 @@
+[
+  {
+    "文件": "app/src/main/java/com/leo/jiarentong/AccountProfileProtocol.kt",
+    "修改前SHA256": "d8f3b2a197404b035194a63f5a6d54e3dfabee5996e66c0ec3f34acd4e05948a",
+    "修改后SHA256": "773fc3d3d860cd9c0778b70da0c0353292fd2b00d31e213696fcaad22c9d4f24"
+  },
+  {
+    "文件": "app/src/main/java/com/leo/jiarentong/AccountSecurityV32.kt",
+    "修改前SHA256": "b366b7677cec163f5a2a320ff83252501cfe15c1f8600a5e0a54fa453ea74995",
+    "修改后SHA256": "88ff559a2773aa893ed3a897d38af1e1793cdb6f90a3b85f281c41d5b971ebd9"
+  },
+  {
+    "文件": "app/src/main/java/com/leo/jiarentong/ExpensesFeatures.kt",
+    "修改前SHA256": "352951dd15e3101601d255f4146470fd533ed7cf5c07dc8528b2f807a4a77954",
+    "修改后SHA256": "0e5753047d3c9aa4aad8a122b87e065966ff9db2bb39eba94e4b715c4a60b258"
+  },
+  {
+    "文件": "app/src/main/java/com/leo/jiarentong/FamilyAttentionV321.kt",
+    "修改前SHA256": "新增",
+    "修改后SHA256": "e670a631c39aad19da1e0100b6927e8c77328b8bbfb28d6ed6d00be9817b5ee5"
+  },
+  {
+    "文件": "app/src/main/java/com/leo/jiarentong/FamilyCollaborationPanel.kt",
+    "修改前SHA256": "fef38de50ca9b7a96e97d492bd8418bc08b6960e1f333aaf8d9ecc23e1ed15fa",
+    "修改后SHA256": "ee489218bc46f26b80478217b41eba9b6cac1644f8a5f046c62b55d615d8f8b9"
+  },
+  {
+    "文件": "app/src/main/java/com/leo/jiarentong/FamilyNoticesV32.kt",
+    "修改前SHA256": "3bcee8028a2c97edbbd1b34623128bfa0f74ae7151eeec71e4439f54cb6a0e1a",
+    "修改后SHA256": "2ac65a4f47cfd4145ad6fc24c62108f0114802e703b3d84db2f2d5aa2c207bc6"
+  },
+  {
+    "文件": "app/src/test/java/com/leo/jiarentong/V321FixTest.kt",
+    "修改前SHA256": "新增",
+    "修改后SHA256": "e5ed7279b4af79901a6adc9b208c120b347579d145d1299a73825aba9ccca6cf"
+  },
+  {
+    "文件": "app/build.gradle.kts",
+    "修改前SHA256": "b079139aaa488d05832157ec3fb0d4fe1e3ddb7d7a91c01e2a8d3eaeab832138",
+    "修改后SHA256": "d8e39bd678438dbfa86bd2123bb0b86eab653ddd024ea38bf3d12b1822d840a0"
+  }
+]

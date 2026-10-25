@@ -1,0 +1,20 @@
+--- a/index.js
++++ b/index.js
+@@ -345,6 +345,10 @@
+-  if (action === "setMyDisplayName") {
+-    await requireFamilyMembership(familyId, uid);
+-    const displayName = requireText(event.displayName, "家庭成员昵称", 40);
+-    await db.collection(MEMBERS).doc(memberDocId(familyId, uid)).update({ displayName });
+-    return { success: true, displayName };
+-  }
++  if (action === "setMyDisplayName") {
++    const displayName = requireText(event.displayName, "家庭成员昵称", 40);
++    await db.runTransaction(async (tx) => {
++      await requireFamilyMembership(familyId, uid, tx);
++      const result = await tx.collection(MEMBERS).doc(memberDocId(familyId, uid)).update({ displayName });
++      if (result && result.code) throw Object.assign(new Error("Member update failed"), { code: result.code });
++      if (!result || result.updated !== 1) fail("FORBIDDEN", "家庭成员权限已变化，请刷新后重试");
++    });
++    return { success: true, displayName };
++  }
+

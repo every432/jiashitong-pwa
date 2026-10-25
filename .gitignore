@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# 本机备份、云端导出和测试产物不进入公开仓库
+*.zip
+docs/**/checkpoint/
+docs/**/artifacts/
+docs/**/screenshots/
+v321_work/

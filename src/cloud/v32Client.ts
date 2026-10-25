@@ -3,6 +3,7 @@ import type {FamilyAction,Json,Member,Role} from './familyTypes.ts';
 import {FamilyError,familyError} from './familyErrors.ts';
 import {id,text,integer,bool,obj,invalid} from './familyProtocol.ts';
 import {newInvite,hasControls} from './authPolicyV32.ts';
+import {consumeInviteSafely} from './inviteJoinV321.ts';
 export type Invitation={id:string;type:'join'|'recovery';target:string;expires:number};
 export type InviteResult={code?:string;id:string;expires:number};
 export const roleLabel=(role:Role|undefined)=>role==='owner'?'家主':role==='admin'?'管理员':'普通成员';
@@ -30,7 +31,7 @@ export class V32Client {
   const home=await this.core.home(family,signal),role=home.family.effectiveRole??home.family.role;if(!['owner','admin'].includes(role))throw new FamilyError('FORBIDDEN','v32CreateInvite');if(type==='recovery'&&!home.members.some(m=>m.memberId===target&&m.authKind==='anonymous'&&(m.effectiveRole??m.role)==='member'))throw new FamilyError('BAD_REQUEST','v32CreateInvite','仅可恢复本家庭普通免邮箱成员；正式账号请使用邮箱找回。');
   const {result}=await this.management(family,'v32CreateInvite',{type,...type==='recovery'?{targetMemberId:id(target)}:{}},signal);return parseInviteResult(result,type);
  }
- async join(invite:string,displayName:string,signal:AbortSignal){const code=newInvite(invite);if(!displayName.trim()||Array.from(displayName.trim()).length>40||hasControls(displayName))throw new FamilyError('BAD_REQUEST','v32ConsumeInvite','请填写1～40字的家庭昵称。');return this.call('v32ConsumeInvite',{inviteCode:code,displayName:displayName.trim(),type:code[0]==='R'?'recovery':'join'},signal);}
+ async join(invite:string,displayName:string,signal:AbortSignal){const code=newInvite(invite);if(!displayName.trim()||Array.from(displayName.trim()).length>40||hasControls(displayName))throw new FamilyError('BAD_REQUEST','v32ConsumeInvite','请填写1～40字的家庭昵称。');await this.capabilities(signal);const gate=this.core.gate();if(!gate.uid||!gate.canWrite)throw new FamilyError('IDENTITY','v32ConsumeInvite');return this.core.exclusive(this.core.slot('all','invite-form'),signal,async()=>{const family=await consumeInviteSafely(this.core.port,this.core.pending,gate.uid,code,displayName.trim(),signal);return this.core.call('getFamily',{familyId:family},signal);});}
  async setRole(family:string,target:string,role:'admin'|'member',signal:AbortSignal){const home=await this.core.home(family,signal);if((home.family.effectiveRole??home.family.role)!=='owner')throw new FamilyError('FORBIDDEN','v32SetMemberRole');if(!home.members.some(m=>m.memberId===target&&m.role!=='owner'&&m.authKind==='formal'))throw new FamilyError('BAD_REQUEST','v32SetMemberRole','只允许为正式普通成员设置管理员，不修改家主。');return this.management(family,'v32SetMemberRole',{targetMemberId:id(target),role},signal);}
 }
 export function parseInviteResult(r:Json,type?:'join'|'recovery'):InviteResult{const available=bool(r.codeAvailable);return{id:id(r.inviteId),expires:integer(r.inviteExpiresAt,1),...(available?{code:newInvite(text(r.inviteCode),type)}:{})};}
